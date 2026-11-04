@@ -407,6 +407,10 @@ background:linear-gradient(
 // ══════════════════════════════════════════════════════════════
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzD8mhtci8lng9-7srCjMwMPA0QY2I3dj4N3s0Pcl72lY3t4rii3JvuG3AVTRcNWkP9Rw/exec";
 
+const FORM_VERSION = "v2 (4 Nov 2026)";
+const SURVEY_CODE = "tourist";
+const ID_PREFIX = "TSQ-";
+
 // ══════════════════════════════════════════════════════════════
 //  DISTRICT → DESTINATION MAP
 // ══════════════════════════════════════════════════════════════
@@ -417,6 +421,8 @@ const DISTRICTS = {
   "Sindhudurg":                ["Amboli"],
   "Amravati":                  ["Chikhaldara"],
   "Satara":                    ["Wai"],
+  "Pune":                      ["Baramati"],
+  "Chhatrapati Sambhajinagar": ["Verul (Ellora)"],
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -451,6 +457,7 @@ const SECTIONS = [
   id:"A", title:"Tourist Profile",
   intro:"Please share a few basic details about yourself and your trip.",
   fields:[
+    {id:"consent", type:"single", label:"[Interviewer] Purpose explained and respondent agrees to take part (verbal consent)", options:["Yes, agrees","No, does not agree"], mustBe:"Yes, agrees", errorMsg:"Consent is required. If the person does not agree, thank them and do not continue.", required:true},
     {
       id:"district",
       type:"select",
@@ -468,11 +475,11 @@ const SECTIONS = [
     {id:"A1", type:"single", label:"A1. Age Group", options:["18-25","26-35","36-45","46-60","Above 60"], required:true},
     {id:"A2", type:"single", label:"A2. Gender", options:["Male","Female","Other / Prefer not to say"], required:true},
     {id:"A3", type:"single", label:"A3. Education Level", options:["Primary","Secondary","Higher Secondary","Graduate","Postgraduate","Doctorate"], required:true},
-    {id:"A4", type:"single", label:"A4. Occupation", options:["Student","Private Service","Government","Business","Professional","Self-employed","Retired"], required:true},
-    {id:"A5", type:"single", label:"A5. Monthly Income", options:["< ₹25,000","₹25,001 - ₹50,000","₹50,001 - ₹75,000","₹75,001 - ₹1,00,000","> ₹1,00,000"], required:true},
+    {id:"A4", type:"single", label:"A4. Occupation", options:["Student","Private Service","Government","Business","Professional","Self-employed","Retired","Homemaker","Not employed","Other"], required:true},
+    {id:"A5", type:"single", label:"A5. Monthly Income", options:["No personal income","Up to ₹25,000","₹25,001 - ₹50,000","₹50,001 - ₹75,000","₹75,001 - ₹1,00,000","Above ₹1,00,000","Prefer not to say"], required:true},
     {id:"A6", type:"single", label:"A6. Nationality", options:["Indian","Foreigner"], required:true},
-    {id:"A6_state", type:"select", label:"If Indian — State", options:INDIAN_STATES, showIf:{field:"A6",val:"Indian"}, optional:true},
-    {id:"A6_country", type:"text", label:"If Foreigner — Country", showIf:{field:"A6",val:"Foreigner"}, optional:true},
+    {id:"A6_state", type:"select", label:"If Indian — State", options:INDIAN_STATES, showIf:{field:"A6",val:"Indian"}, required:true},
+    {id:"A6_country", type:"text", label:"If Foreigner — Country", showIf:{field:"A6",val:"Foreigner"}, required:true},
     {id:"A8", type:"single", label:"A8. Duration of Stay", options:["Same day","1 night","2 nights","3-5 nights",">5 nights"], required:true},
     {id:"A9", type:"text", inputType:"number", label:"A9. Overall Trip Expenditure (₹)", required:true},
     {id:"A10", type:"single", label:"A10. Are you a first-time visitor to a rural destination?", options:["Yes","No"], required:true},
@@ -600,7 +607,7 @@ function renderSection() {
       const arr = answers[f.id] || [];
       html += `<div class="pill-group">${(f.options||[]).map(o=>`<button type="button" class="pill${arr.includes(o)?' selected':''}" onclick="toggleMulti('${f.id}','${o.replace(/'/g,"&apos;")}')">${o}</button>`).join('')}</div>`;
     } else if (f.type === 'text') {
-      html += `<input class="field-input" type="${f.inputType||'text'}" id="${f.id}" value="${answers[f.id]||''}" placeholder="Type here..." onchange="setAnswer('${f.id}',this.value)">`;
+      html += `<input class="field-input" type="${f.inputType||'text'}"${f.inputType==='number'?' min="0" inputmode="numeric"':''} id="${f.id}" value="${answers[f.id]||''}" placeholder="Type here..." onchange="setAnswer('${f.id}',this.value)">`;
     } else if (f.type === 'likert') {
       const v = answers[f.id];
       html += `<div class="likert-row">`;
@@ -620,7 +627,7 @@ function renderSection() {
       });
       html += `</div>`;
     }
-    html += `<div class="field-error" id="err-${f.id}">This field is required.</div></div>`;
+    html += `<div class="field-error" id="err-${f.id}">${f.errorMsg || (f.inputType==='number' ? 'Please enter a valid number (0 or more).' : 'This field is required.')}</div></div>`;
   });
 
 body.innerHTML = html; // Do NOT auto-scroll when re-rendering answers. This prevents the // page jumping up after every answer. (Only scroll on user navigation // if you explicitly want to.) // window.scrollTo({top:0, behavior:'smooth'});
@@ -675,15 +682,21 @@ function validateStep() {
     const block = document.getElementById('block-'+f.id);
     if (!block) return;
     block.classList.remove('has-error');
-    if (f.optional) return;
     const v = answers[f.id];
     let empty = v === undefined || v === null || v === '';
-    if (f.type === 'multi' && (!Array.isArray(v) || v.length === 0)) empty = true;
+    if (f.optional) empty = false;
+    if (!f.optional && f.type === 'multi' && (!Array.isArray(v) || v.length === 0)) empty = true;
     if (f.type === 'matrix') {
       const needed = (f.rows||[]).length;
       const filled = v ? Object.keys(v).length : 0;
       if (filled < needed) empty = true;
     }
+    if (f.mustBe && v !== undefined && v !== f.mustBe) empty = true;
+    if (f.inputType === 'number' && v !== undefined && v !== '') {
+      const num = Number(v);
+      if (isNaN(num) || num < (f.min ?? 0)) empty = true;
+    }
+    if (f.check && !empty && !f.check(answers)) empty = true;
     if (empty) { block.classList.add('has-error'); valid = false; }
   });
 if (!valid) {
@@ -739,12 +752,75 @@ function goBack() {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  FLATTEN + SUBMIT
+//  ON-DEVICE BACKUP QUEUE  (v2)
+//  Every response is saved on this device before it is sent. If the
+//  network fails, it stays in the queue and is re-sent automatically when
+//  the device is back online, or when the yellow notice is tapped.
+//  Each row carries response_id, so any duplicate can be removed in cleaning.
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  COMPATIBLE VERSION: sends exactly the same column names as the
+//  current form, so the existing Apps Script and Google Sheet need no
+//  change. Consent is checked on screen but not sent (every stored row
+//  therefore had consent). response_id stays on the device only, to stop
+//  the backup queue sending a response twice.
+// ══════════════════════════════════════════════════════════════
+const NOT_SENT = new Set(['consent','response_id','form_version','local_time']);
+const QUEUE_KEY = 'survey_queue_' + SURVEY_CODE;
+function loadQueue(){ try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch(e) { return []; } }
+function saveQueue(q){ try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch(e) {} }
+
+async function sendOne(flat) {
+  const fd = new FormData();
+  Object.entries(flat).forEach(([k,v]) => { if (!NOT_SENT.has(k)) fd.append(k, v); });
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+  await Promise.race([ fetch(SCRIPT_URL, { method:'POST', body: fd, mode:'no-cors' }), timeout ]);
+}
+
+let flushing = false;
+async function flushQueue() {
+  if (flushing) return;
+  flushing = true;
+  const q = loadQueue();
+  const remaining = [];
+  for (const item of q) {
+    try { await sendOne(item); } catch(e) { remaining.push(item); }
+  }
+  // keep anything added to the queue while we were sending
+  const added = loadQueue().filter(x => !q.some(y => y.response_id === x.response_id));
+  saveQueue(remaining.concat(added));
+  flushing = false;
+  updateQueueNotice();
+}
+
+function updateQueueNotice() {
+  const n = loadQueue().length;
+  let el = document.getElementById('queue-note');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'queue-note';
+    el.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:320px;background:#fff3cd;color:#4a3700;border:1px solid #e2c56b;padding:10px 14px;border-radius:10px;font:14px/1.4 sans-serif;z-index:9999;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)';
+    el.onclick = flushQueue;
+    document.body.appendChild(el);
+  }
+  el.style.display = n ? 'block' : 'none';
+  el.textContent = n + ' response(s) saved on this device but not yet sent. Tap here to send now.';
+}
+window.addEventListener('online', flushQueue);
+window.addEventListener('load', () => { updateQueueNotice(); if (navigator.onLine) flushQueue(); });
+
+// ══════════════════════════════════════════════════════════════
+//  FLATTEN + SUBMIT  (v2: only answers that are visible are sent)
 // ══════════════════════════════════════════════════════════════
 function flattenAnswers(ans, sections) {
-  const flat = { submitted_at: new Date().toISOString() };
+  const now = new Date();
+  const flat = {
+    submitted_at: now.toISOString(),
+    local_time: now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    form_version: FORM_VERSION
+  };
   sections.forEach(sec => {
-    sec.fields.forEach(f => {
+    visibleFields(sec).forEach(f => {
       const v = ans[f.id];
       if (v === undefined || v === null) return;
       if (f.type === 'matrix' && typeof v === 'object') {
@@ -759,9 +835,9 @@ function flattenAnswers(ans, sections) {
   return flat;
 }
 
-function showThankYou() {
-  const id = 'TSQ-' + Date.now().toString(36).toUpperCase();
-  document.getElementById('ty-id').textContent = 'Response ID: ' + id + '  |  ' + new Date().toLocaleString();
+function showThankYou(id, sent) {
+  document.getElementById('ty-id').textContent = 'Response ID: ' + id + '  |  ' + new Date().toLocaleString() +
+    (sent ? '' : '  |  Saved on this device; it will be sent when the internet is back.');
   document.getElementById('survey').style.display = 'none';
   document.getElementById('thankyou').style.display = 'flex';
 }
@@ -779,25 +855,21 @@ async function submitSurvey() {
     return;
   }
 
-  // Safety timeout: never leave the button stuck on "Submitting..." —
-  // if the request hasn't settled in 15s, surface an error instead of hanging.
-  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
+  const id = ID_PREFIX + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase();
+  const flat = flattenAnswers(answers, SECTIONS);
+  flat.response_id = id;
+  saveQueue(loadQueue().concat([flat]));        // backup first
 
+  let sent = false;
   try {
-    const flat = flattenAnswers(answers, SECTIONS);
-    const formData = new FormData();
-    Object.entries(flat).forEach(([k,v]) => formData.append(k, v));
-
-    await Promise.race([
-      fetch(SCRIPT_URL, { method:'POST', body: formData, mode:'no-cors' }),
-      timeout
-    ]);
-    showThankYou();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = 'Submit Response ✓';
-    alert('Error submitting. Please check your internet connection and try again. If this keeps happening, the Google Sheet link (SCRIPT_URL) may need to be re-deployed.');
-  }
+    await sendOne(flat);
+    saveQueue(loadQueue().filter(x => x.response_id !== id));
+    sent = true;
+  } catch(e) { /* stays in the queue */ }
+  updateQueueNotice();
+  btn.disabled = false;
+  btn.textContent = 'Submit Response ✓';
+  showThankYou(id, sent);
 }
 
 function restartSurvey() {
