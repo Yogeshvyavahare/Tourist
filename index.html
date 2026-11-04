@@ -883,86 +883,101 @@ function restartSurvey() {
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  VOICE ASSISTANT for the survey forms
-//  Goes through the questions one at a time, listens to the spoken answer
-//  (Marathi, Hindi or English), shows what it understood, and fills the
-//  answer only after it is confirmed (by voice, by tap, or by letting a
-//  short countdown run out). Tap answering always keeps working.
+//  VOICE ASSISTANT for the survey forms  (version 2, 4 Nov 2026)
+//  Goes through the questions one at a time and listens to the spoken
+//  answer. Marathi and English can be mixed in the same interview: the
+//  recogniser listens in Marathi (or Hindi), and the word list also knows
+//  English answer words as Indian speech engines write them ("अॅग्री",
+//  "फोर", "येस") and Marathi words written in English letters ("char", "ho").
+//  By default an understood answer is saved at once and the next question
+//  follows; say "मागे" / "back" to correct the last one.
 //  It writes into the same `answers` object as tapping, so the Google
-//  Sheet receives exactly the same columns.
-//  Speech recognition uses the browser's speech service (in Chrome this
-//  needs internet). Audio is not stored by this form.
+//  Sheet receives exactly the same columns. Audio is not stored.
 // ══════════════════════════════════════════════════════════════
 (function () {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ANDROID = /Android/i.test(navigator.userAgent);
   const store = {
-    get(k, d) { try { const v = localStorage.getItem('va_' + k); return v === null ? d : v; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('va_' + k, v); } catch (e) {} }
+    get(k, d) { try { const v = localStorage.getItem('va2_' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('va2_' + k, v); } catch (e) {} }
   };
   const V = {
-    on: false, rec: null, listening: false, wantListen: false,
+    on: false, rec: null, listening: false, wantListen: false, speaking: false,
     lang: store.get('lang', 'mr-IN'),
-    wait: +store.get('wait', '2'),          // seconds of silence before an answer is taken
-    countdown: +store.get('countdown', '3'), // seconds before a proposal is accepted (0 = must confirm)
-    mode: store.get('mode', 'handsfree'),   // handsfree | tap
+    wait: +store.get('wait', '1.5'),        // seconds of silence before the answer is taken
+    accept: store.get('accept', 'now'),     // now | 2 | 3 | 5 | confirm
     speak: store.get('speak', '0') === '1',
-    item: null, proposal: null, heard: '', timer: null, cdTimer: null, cdLeft: 0,
-    skipped: new Set(), history: []
+    item: null, proposal: null, heard: [], timer: null, cdTimer: null, cdLeft: 0,
+    ignoreUntil: 0, utter: null, skipped: new Set(), history: [], lastError: ''
   };
 
   // ---------- understanding spoken answers ----------
-  const DEV = { '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9' };
+  const DEVDIG = { '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9' };
   function norm(s) {
-    return String(s || '').toLowerCase().replace(/[०-९]/g, d => DEV[d])
+    return String(s || '').toLowerCase()
+      .replace(/[०-९]/g, d => DEVDIG[d])
+      .replace(/ॲ/g, 'अ').replace(/ऍ/g, 'ए').replace(/ऑ/g, 'ओ')   // ॲ ऍ ऑ
+      .replace(/ॅ/g, '').replace(/ॉ/g, 'ो').replace(/ँ/g, 'ं') // ॅ  ॉ→ो  ँ→ं
       .replace(/[.,!?।"'()\-–:;]/g, ' ').replace(/\s+/g, ' ').trim();
   }
   const NUMWORDS = {
-    1: ['one', 'एक', 'पहिला', 'पहला', 'first'], 2: ['two', 'दोन', 'दो', 'दुसरा', 'second'],
-    3: ['three', 'तीन', 'तिसरा', 'third'], 4: ['four', 'चार', 'चौथा', 'fourth'],
-    5: ['five', 'पाच', 'पांच', 'पाँच', 'पाचवा', 'fifth'], 6: ['six', 'सहा', 'छह', 'छः'], 7: ['seven', 'सात'],
-    8: ['eight', 'आठ'], 9: ['nine', 'नऊ', 'नौ'], 10: ['ten', 'दहा', 'दस'], 11: ['eleven', 'अकरा', 'ग्यारह']
+    1: ['one', 'एक', 'पहिला', 'पहला', 'first', 'वन', 'ek'],
+    2: ['two', 'दोन', 'दो', 'दुसरा', 'second', 'टू', 'टु', 'don', 'doan'],
+    3: ['three', 'तीन', 'तिसरा', 'third', 'थ्री', 'teen'],
+    4: ['four', 'चार', 'चौथा', 'fourth', 'फोर', 'फ़ोर', 'char', 'chaar'],
+    5: ['five', 'पाच', 'पांच', 'पाचवा', 'fifth', 'फाइव', 'फाईव', 'फाइव्ह', 'फाईव्ह', 'फाय', 'pach', 'paach', 'panch', 'paanch'],
+    6: ['six', 'सहा', 'छह', 'छः', 'सिक्स'], 7: ['seven', 'सात', 'सेवन'], 8: ['eight', 'आठ', 'एट'],
+    9: ['nine', 'नऊ', 'नौ', 'नाइन'], 10: ['ten', 'दहा', 'दस', 'टेन'], 11: ['eleven', 'अकरा', 'ग्यारह']
   };
-  // words speech engines often write instead of a number, accepted only in a very short reply
-  const SOUNDALIKE = { won: 1, to: 2, too: 2, tree: 3, for: 4, fore: 4 };
+  const NUMLOOKUP = {};
+  Object.entries(NUMWORDS).forEach(([n, ws]) => ws.forEach(w => { NUMLOOKUP[norm(w)] = +n; }));
+  // words engines write instead of a number; trusted only in a reply of one or two words
+  const SOUNDALIKE = { won: 1, to: 2, too: 2, do: 2, tree: 3, tin: 3, for: 4, fore: 4, फॉर: 4, फाय: 5 };
   function numbersIn(text) {
     const toks = norm(text).split(' ').filter(Boolean);
     const found = [];
     toks.forEach(t => {
-      if (/^\d+$/.test(t)) { found.push(+t); return; }
-      for (const [n, ws] of Object.entries(NUMWORDS)) if (ws.includes(t)) { found.push(+n); return; }
-      if (toks.length <= 2 && SOUNDALIKE[t]) found.push(SOUNDALIKE[t]);
+      if (/^\d+$/.test(t)) found.push(+t);
+      else if (NUMLOOKUP[t] !== undefined) found.push(NUMLOOKUP[t]);
+      else if (toks.length <= 2 && SOUNDALIKE[t] !== undefined) found.push(SOUNDALIKE[t]);
     });
     return found;
   }
-  // Marathi / Hindi phrases for the standard answer words (longest match wins)
+  // answer words in Marathi, Hindi, English, and English as written in Devanagari (longest match wins)
   const SYN = {
-    'strongly disagree': ['पूर्णपणे असहमत', 'पूर्ण असहमत', 'अजिबात सहमत नाही', 'बिल्कुल असहमत', 'बिलकुल असहमत', 'पूरी तरह असहमत', 'बिल्कुल सहमत नहीं'],
-    'disagree': ['असहमत', 'सहमत नाही', 'सहमत नहीं', 'not agree'],
-    'neutral': ['तटस्थ', 'न्यूट्रल', 'मध्यम'],
-    'agree': ['सहमत', 'agreed'],
-    'strongly agree': ['पूर्णपणे सहमत', 'पूर्ण सहमत', 'पूरी तरह सहमत', 'बिल्कुल सहमत', 'बिलकुल सहमत', 'totally agree', 'fully agree'],
-    'very dissatisfied': ['खूप असमाधानी', 'बहुत असंतुष्ट'], 'dissatisfied': ['असमाधानी', 'असंतुष्ट', 'not satisfied'],
-    'satisfied': ['समाधानी', 'संतुष्ट'], 'very satisfied': ['खूप समाधानी', 'बहुत संतुष्ट', 'पूर्ण समाधानी'],
-    'yes': ['हो', 'होय', 'हां', 'हाँ', 'haan', 'han'], 'no': ['नाही', 'नहीं', 'nahi', 'nahin'],
-    'male': ['पुरुष', 'man'], 'female': ['स्त्री', 'महिला', 'woman', 'lady'],
-    'married': ['विवाहित', 'शादीशुदा'], 'single': ['अविवाहित', 'unmarried'],
-    'indian': ['भारतीय', 'india']
+    'strongly disagree': ['पूर्णपणे असहमत', 'पूर्ण असहमत', 'अजिबात सहमत नाही', 'बिल्कुल असहमत', 'बिलकुल असहमत', 'पूरी तरह असहमत',
+      'स्ट्रॉंगली डिसअॅग्री', 'स्ट्राँगली डिसअॅग्री', 'स्ट्रॉंगली डिसॲग्री', 'स्ट्राँगली डिसॲग्री', 'स्ट्रॉन्गली डिसअग्री', 'स्ट्रॉंगली डिसएग्री', 'purnapane asahamat'],
+    'disagree': ['असहमत', 'सहमत नाही', 'सहमत नहीं', 'not agree', 'डिसअॅग्री', 'डिसॲग्री', 'डिसऍग्री', 'डिसअग्री', 'डिसएग्री', 'disagri', 'asahamat'],
+    'neutral': ['तटस्थ', 'न्यूट्रल', 'न्युट्रल', 'मध्यम', 'tatastha', 'nutral'],
+    'agree': ['सहमत', 'agreed', 'अॅग्री', 'ॲग्री', 'ऍग्री', 'अग्री', 'एग्री', 'agri', 'sahamat'],
+    'strongly agree': ['पूर्णपणे सहमत', 'पूर्ण सहमत', 'पूरी तरह सहमत', 'बिल्कुल सहमत', 'बिलकुल सहमत', 'totally agree', 'fully agree',
+      'स्ट्रॉंगली अॅग्री', 'स्ट्राँगली अॅग्री', 'स्ट्रॉंगली ॲग्री', 'स्ट्राँगली ॲग्री', 'स्ट्रॉन्गली अग्री', 'स्ट्रॉंगली एग्री', 'purnapane sahamat', 'purna sahamat'],
+    'very dissatisfied': ['खूप असमाधानी', 'बहुत असंतुष्ट', 'व्हेरी डिससॅटिस्फाइड'],
+    'dissatisfied': ['असमाधानी', 'असंतुष्ट', 'not satisfied', 'डिससॅटिस्फाइड', 'asamadhani'],
+    'satisfied': ['समाधानी', 'संतुष्ट', 'सॅटिस्फाइड', 'सटिस्फाइड', 'samadhani'],
+    'very satisfied': ['खूप समाधानी', 'बहुत संतुष्ट', 'पूर्ण समाधानी', 'व्हेरी सॅटिस्फाइड', 'khup samadhani'],
+    'yes': ['हो', 'होय', 'हां', 'हाँ', 'येस', 'यस', 'haan', 'han', 'ho', 'hoy'],
+    'no': ['नाही', 'नहीं', 'नो', 'nahi', 'nahin', 'nahee'],
+    'male': ['पुरुष', 'man', 'मेल'], 'female': ['स्त्री', 'महिला', 'woman', 'lady', 'फिमेल'],
+    'married': ['विवाहित', 'शादीशुदा', 'मॅरीड'], 'single': ['अविवाहित', 'unmarried', 'सिंगल'],
+    'indian': ['भारतीय', 'india', 'इंडियन']
   };
-  const CONFIRM = ['yes', 'ok', 'okay', 'confirm', 'correct', 'right', 'हो', 'होय', 'बरोबर', 'ठीक', 'हां', 'हाँ', 'सही', 'ठीक है'];
-  const REJECT = ['no', 'cancel', 'wrong', 'change', 'नाही', 'चूक', 'बदला', 'नहीं', 'गलत', 'बदलो'];
+  const CONFIRM = ['ok', 'okay', 'confirm', 'correct', 'right', 'ओके', 'ओक', 'बरोबर', 'बरोबर आहे', 'ठीक', 'ठीक आहे', 'सही', 'ठीक है', 'yes', 'हो', 'होय', 'हां', 'येस'];
+  const REJECT = ['no', 'cancel', 'wrong', 'change', 'नाही', 'चूक', 'बदला', 'नहीं', 'गलत', 'बदलो', 'नो', 'चेंज'];
   const CMD = {
-    repeat: ['repeat', 'again', 'पुन्हा', 'परत', 'फिर से', 'दोबारा'],
-    back: ['go back', 'previous', 'मागे', 'मागचा', 'पीछे', 'पिछला'],
-    skip: ['skip', 'पुढचा', 'वगळा', 'आगे', 'छोड़ो']
+    repeat: ['repeat', 'again', 'पुन्हा', 'परत सांगा', 'फिर से', 'दोबारा', 'रिपीट'],
+    back: ['back', 'go back', 'previous', 'मागे', 'मागचा', 'पीछे', 'पिछला', 'बॅक'],
+    skip: ['skip', 'पुढचा', 'वगळा', 'आगे', 'छोड़ो', 'स्किप']
   };
-  const hasWord = (text, w) => (' ' + norm(text) + ' ').includes(' ' + norm(w) + ' ');
+  const padded = t => ' ' + norm(t) + ' ';
+  const hasWord = (text, w) => padded(text).includes(' ' + norm(w) + ' ');
   const isOnly = (text, list) => list.some(w => norm(text) === norm(w));
 
   function matchOption(item, text) {
-    const t = ' ' + norm(text) + ' ';
+    const t = padded(text);
     let best = null, bestLen = 0, tie = false;
     item.options.forEach((opt, i) => {
-      const head = norm(String(opt).split(',')[0]);       // "Yes, agrees" also matches "yes"
+      const head = norm(String(opt).split(',')[0]);        // "Yes, agrees" also matches "yes"
       const phrases = [opt].concat(SYN[norm(opt)] || [], head !== norm(opt) ? [head].concat(SYN[head] || []) : []);
       phrases.forEach(p => {
         const np = norm(p);
@@ -983,7 +998,7 @@ function restartSurvey() {
         const digits = norm(text).replace(/[^0-9 ]/g, ' ').replace(/\s+/g, '');
         const words = numbersIn(text);
         const v = digits || (words.length === 1 ? String(words[0]) : '');
-        return v ? { value: v, show: v } : { error: 'Please say the number in digits, for example "4500".' };
+        return v ? { value: v, show: v } : { error: 'Please say the number, for example "4500".' };
       }
       const v = String(text).trim();
       return v ? { value: v, show: v } : { error: 'Nothing heard.' };
@@ -991,7 +1006,7 @@ function restartSurvey() {
     const nums = numbersIn(text).filter(n => n >= 1 && n <= item.options.length);
     if (item.kind === 'multi') {
       const picks = new Set(nums.map(n => n - 1));
-      item.options.forEach((o, i) => { if ((' ' + norm(text) + ' ').includes(' ' + norm(o) + ' ')) picks.add(i); });
+      item.options.forEach((o, i) => { if (padded(text).includes(' ' + norm(o) + ' ')) picks.add(i); });
       if (!picks.size) return { error: 'No option recognised. Say the option numbers, for example "1 and 3".' };
       const vals = [...picks].sort((a, b) => a - b).map(i => item.options[i]);
       return { value: vals, show: vals.join(', ') };
@@ -1003,11 +1018,17 @@ function restartSurvey() {
     else if (byWord === null && uniq.length === 1) idx = uniq[0] - 1;
     else if (byWord !== null && uniq.length === 1 && uniq[0] - 1 === byWord) idx = byWord;
     if (idx === null) {
-      return { error: uniq.length > 1 || byWord !== null ? 'The answer was not clear (more than one option heard). Please repeat.'
+      return { error: uniq.length > 1 || byWord !== null ? 'Not clear (more than one option heard). Please repeat.'
                                                            : 'Answer not recognised. Please repeat, or tap the answer.' };
     }
     const scaleItem = item.kind === 'likert' || item.kind === 'matrix';
     return { value: scaleItem ? idx + 1 : item.options[idx], show: (idx + 1) + ' = ' + item.options[idx] };
+  }
+  // the engine gives up to 3 guesses of what was said; use the first one that makes sense
+  function interpretAny(item, alts) {
+    let firstErr = null;
+    for (const a of alts) { const r = interpret(item, a); if (!r.error) return Object.assign(r, { heard: a }); if (!firstErr) firstErr = r; }
+    return firstErr || { error: 'Nothing heard.' };
   }
 
   // ---------- which question comes next ----------
@@ -1033,7 +1054,8 @@ function restartSurvey() {
   }
 
   // ---------- panel ----------
-  let P;
+  let P, built = false;
+  const $ = id => document.getElementById(id);
   function el(tag, attrs, html) { const e = document.createElement(tag); Object.assign(e, attrs || {}); if (html !== undefined) e.innerHTML = html; return e; }
   function buildPanel() {
     const css = `
@@ -1046,6 +1068,7 @@ function restartSurvey() {
 #va-panel .va-opt{border:1px solid #d9c4a6;border-radius:14px;padding:4px 10px;font-size:13px;background:#fff}
 #va-panel .va-heard{min-height:22px;font-style:italic;color:#555}
 #va-panel .va-prop{margin:6px 0;padding:8px 10px;border-radius:10px;background:#e9f5e7;border:1px solid #9cc79a;display:none;font-weight:600}
+#va-panel .va-saved{font-size:13px;color:#2f6b2d;min-height:18px}
 #va-panel .va-err{margin:6px 0;color:#9b1c1c;display:none}
 #va-panel .va-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 #va-panel button{border:1px solid #c9ab86;background:#fff;border-radius:10px;padding:10px 12px;font:600 14px sans-serif;color:#2a1a0c}
@@ -1066,6 +1089,7 @@ function restartSurvey() {
     P = el('div', { id: 'va-panel' });
     P.innerHTML = `
       <div class="va-top"><span><span class="va-dot" id="va-dot"></span><span id="va-status">Off</span></span><span id="va-pos"></span></div>
+      <div class="va-saved" id="va-saved"></div>
       <div class="va-stem" id="va-stem"></div>
       <div class="va-q" id="va-q"></div>
       <div class="va-opts" id="va-opts"></div>
@@ -1074,8 +1098,8 @@ function restartSurvey() {
       <div class="va-err" id="va-err"></div>
       <div class="va-btns">
         <button type="button" class="va-main" id="va-listen">Listen</button>
-        <button type="button" class="va-ok" id="va-yes">Confirm</button>
-        <button type="button" id="va-no">Change</button>
+        <button type="button" class="va-ok" id="va-yes" style="display:none">Confirm</button>
+        <button type="button" id="va-no" style="display:none">Change</button>
         <button type="button" id="va-repeat">Repeat</button>
         <button type="button" id="va-back">Back</button>
         <button type="button" id="va-skip">Skip</button>
@@ -1084,80 +1108,122 @@ function restartSurvey() {
         <button type="button" id="va-close">Close</button>
       </div>
       <div class="va-set" id="va-set">
-        <label>Language heard<select id="va-lang"><option value="mr-IN">Marathi</option><option value="hi-IN">Hindi</option><option value="en-IN">English (India)</option></select></label>
-        <label>Wait after speaking<select id="va-wait">${[1, 2, 3, 4, 5, 6].map(s => `<option value="${s}">${s} s</option>`).join('')}</select></label>
-        <label>Accept answer after<select id="va-cd"><option value="0">Only when confirmed</option>${[2, 3, 4, 5].map(s => `<option value="${s}">${s} s</option>`).join('')}</select></label>
-        <label>Listening<select id="va-mode"><option value="handsfree">Always on (hands-free)</option><option value="tap">Only after tapping Listen</option></select></label>
+        <label>Language<select id="va-lang"><option value="mr-IN">Marathi + English</option><option value="hi-IN">Hindi + English</option><option value="en-IN">English (India)</option></select></label>
+        <label>Wait after speaking<select id="va-wait">${[1, 1.5, 2, 3, 4, 6].map(s => `<option value="${s}">${s} s</option>`).join('')}</select></label>
+        <label>Save the answer<select id="va-accept"><option value="now">At once, then next question</option><option value="2">After 2 s</option><option value="3">After 3 s</option><option value="5">After 5 s</option><option value="confirm">Only when I confirm</option></select></label>
         <label>Read question aloud<select id="va-speak"><option value="0">No (I read it)</option><option value="1">Yes</option></select></label>
       </div>
-      <div style="font-size:11px;color:#7a5a3c;margin-top:8px">Ask the respondent's permission before using voice. Speech is turned into text by the browser's speech service; the form does not save any audio.</div>`;
+      <div style="font-size:11px;color:#7a5a3c;margin-top:8px">Ask the respondent's permission before using voice. Speech is turned into text by the browser's speech service (it needs internet); the form does not save audio. Say "मागे" or "back" to change the last answer.</div>`;
     document.body.appendChild(P);
-    const $ = id => document.getElementById(id);
-    $('va-listen').onclick = () => (V.listening ? pauseListening() : listen());
+    $('va-listen').onclick = () => (V.wantListen ? pauseListening() : listen());
     $('va-yes').onclick = () => accept();
-    $('va-no').onclick = () => { clearProposal(); say(''); if (V.mode === 'handsfree') listen(); };
+    $('va-no').onclick = () => { clearProposal(); say(''); };
     $('va-repeat').onclick = () => present(true);
     $('va-back').onclick = () => goBackOne();
     $('va-skip').onclick = () => skip();
     $('va-submit').onclick = () => { if (typeof submitSurvey === 'function') submitSurvey(); };
     $('va-gear').onclick = () => { const s = $('va-set'); s.style.display = s.style.display === 'flex' ? 'none' : 'flex'; };
     $('va-close').onclick = () => stop();
-    $('va-lang').value = V.lang; $('va-wait').value = V.wait; $('va-cd').value = V.countdown; $('va-mode').value = V.mode; $('va-speak').value = V.speak ? '1' : '0';
+    $('va-lang').value = V.lang; $('va-wait').value = String(V.wait); $('va-accept').value = V.accept; $('va-speak').value = V.speak ? '1' : '0';
     $('va-lang').onchange = e => { V.lang = e.target.value; store.set('lang', V.lang); restartRec(); };
     $('va-wait').onchange = e => { V.wait = +e.target.value; store.set('wait', V.wait); };
-    $('va-cd').onchange = e => { V.countdown = +e.target.value; store.set('countdown', V.countdown); };
-    $('va-mode').onchange = e => { V.mode = e.target.value; store.set('mode', V.mode); };
+    $('va-accept').onchange = e => { V.accept = e.target.value; store.set('accept', V.accept); };
     $('va-speak').onchange = e => { V.speak = e.target.value === '1'; store.set('speak', V.speak ? '1' : '0'); };
   }
-  const $ = id => document.getElementById(id);
+  function buildOnce() { if (!built) { buildPanel(); built = true; } }
   function status(t, on) { $('va-status').textContent = t; $('va-dot').className = 'va-dot' + (on ? ' on' : ''); }
   function say(t) { $('va-heard').textContent = t ? 'Heard: "' + t + '"' : ''; }
   function err(t) { const e = $('va-err'); e.textContent = t || ''; e.style.display = t ? 'block' : 'none'; }
 
   // ---------- speech recognition ----------
   function makeRec() {
-    if (!SR) return null;
     const r = new SR();
-    r.lang = V.lang; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.lang = V.lang;
+    r.continuous = !ANDROID;          // Android works best with one phrase per session; we restart it
+    r.interimResults = true;
+    r.maxAlternatives = 3;
+    r.onstart = () => { V.listening = true; status('Listening… speak now', true); $('va-listen').textContent = 'Pause'; };
     r.onresult = e => {
-      let interim = '', fin = '';
+      if (V.speaking || Date.now() < V.ignoreUntil) return;        // ignore our own voice and leftovers
+      let interim = '';
+      const finals = [];
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) fin += t + ' '; else interim += t;
+        const res = e.results[i];
+        if (res.isFinal) { const alts = []; for (let j = 0; j < res.length; j++) alts.push(res[j].transcript); finals.push(alts); }
+        else interim += res[0].transcript;
       }
-      if (interim) { clearTimeout(V.timer); say(V.heard + interim); }   // still speaking: keep waiting
-      if (fin) {
-        V.heard += fin; say(V.heard.trim());
+      if (interim) { clearTimeout(V.timer); say(V.heard.map(a => a[0]).join(' ') + ' ' + interim); }   // still speaking: keep waiting
+      if (finals.length) {
+        finals.forEach(a => V.heard.push(a));
+        say(V.heard.map(a => a[0]).join(' '));
         clearTimeout(V.timer);
-        V.timer = setTimeout(() => { const t = V.heard.trim(); V.heard = ''; if (t) handleSpeech(t); }, V.wait * 1000);
+        V.timer = setTimeout(takeHeard, V.wait * 1000);
       }
     };
     r.onerror = e => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { V.wantListen = false; err('Microphone permission is blocked. Allow the microphone for this page in the browser settings.'); }
-      else if (e.error === 'network') { V.wantListen = false; err('The speech service needs internet. Answer by tapping until the network is back.'); }
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') err('Speech error: ' + e.error);
+      V.lastError = e.error;
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { V.wantListen = false; err('The microphone is blocked. Tap the lock icon next to the web address, allow Microphone, then tap Listen.'); }
+      else if (e.error === 'network') { err('No internet for speech-to-text. Tap the answers for now; voice resumes when the network is back.'); }
+      else if (e.error === 'audio-capture') { err('No microphone found. Check the phone microphone, or close other apps using it.'); }
+      else if (e.error === 'language-not-supported') { err('This language is not supported here. Choose English (India) in Settings.'); }
     };
     r.onend = () => {
       V.listening = false;
-      if (V.on && V.wantListen) setTimeout(() => { if (V.on && V.wantListen) safeStart(); }, 250);
-      else status(V.on ? 'Paused' : 'Off', false);
+      if (V.on && V.wantListen && !V.speaking) setTimeout(safeStart, V.lastError === 'network' ? 3000 : 150);
+      else if (!V.speaking) { status(V.on ? 'Paused — tap Listen' : 'Off', false); $('va-listen').textContent = 'Listen'; }
     };
     return r;
   }
-  function safeStart() {
-    if (!V.rec) V.rec = makeRec();
-    if (!V.rec) return;
-    try { V.rec.start(); V.listening = true; status('Listening…', true); $('va-listen').textContent = 'Pause'; } catch (e) { /* already started */ }
+  function takeHeard() {
+    const alts = V.heard.length ? V.heard.map(a => a[0]) : [];
+    // combine the phrases; also try each guess of the last phrase on its own
+    const combined = alts.join(' ').trim();
+    const last = V.heard.length ? V.heard[V.heard.length - 1] : [];
+    V.heard = [];
+    const tries = [combined].concat(last).filter((x, i, a) => x && a.indexOf(x) === i);
+    if (tries.length) handleSpeech(tries);
   }
-  function listen() { if (!SR) { err('Voice input is not available in this browser. Use Chrome on Android or a laptop.'); return; } V.wantListen = true; err(''); safeStart(); }
-  function pauseListening() { V.wantListen = false; try { V.rec && V.rec.stop(); } catch (e) {} V.listening = false; status('Paused', false); $('va-listen').textContent = 'Listen'; }
-  function restartRec() { const was = V.wantListen; pauseListening(); V.rec = null; if (was) listen(); }
+  function safeStart() {
+    if (!V.on || !V.wantListen || V.speaking || V.listening) return;
+    if (!V.rec) V.rec = makeRec();
+    V.lastError = '';
+    try { V.rec.start(); V.listening = true; status('Listening… speak now', true); $('va-listen').textContent = 'Pause'; }
+    catch (e) { setTimeout(safeStart, 300); }   // still closing the last session: try again shortly
+  }
+  function listen() {
+    if (!SR) { err('Voice input is not available in this browser. Use Chrome on an Android phone or a laptop.'); return; }
+    V.wantListen = true; err(''); safeStart();
+  }
+  function pauseListening() {
+    V.wantListen = false; clearTimeout(V.timer);
+    try { V.rec && V.rec.abort(); } catch (e) {}
+    V.listening = false; status('Paused — tap Listen', false); $('va-listen').textContent = 'Listen';
+  }
+  function restartRec() { const was = V.wantListen; pauseListening(); V.rec = null; if (was) setTimeout(listen, 300); }
+  // keep-alive: some phones end the microphone session silently
+  setInterval(() => { if (V.on && V.wantListen && !V.speaking && !V.listening) safeStart(); }, 2000);
+
+  // ---------- reading the question aloud ----------
+  function speakThen(text, done) {
+    if (!V.speak || !window.speechSynthesis) { done(); return; }
+    V.speaking = true;
+    try { V.rec && V.listening && V.rec.abort(); } catch (e) {}
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; V.speaking = false; V.ignoreUntil = Date.now() + 400; done(); };
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang === 'en-IN') || voices.find(v => /^en/i.test(v.lang));
+    if (voice) u.voice = voice;
+    u.lang = voice ? voice.lang : 'en-IN'; u.rate = 0.95;
+    u.onend = finish; u.onerror = finish;
+    V.utter = u;                                   // keep a reference: Chrome drops the end event otherwise
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+    // safety net if the end event never comes
+    setTimeout(finish, 1500 + text.split(/\s+/).length * 450);
+  }
 
   // ---------- flow ----------
-  function current() {
-    const items = itemsOfSection();
-    return items.find(it => !answered(it) && !V.skipped.has(it.key)) || null;
-  }
+  function current() { return itemsOfSection().find(it => !answered(it) && !V.skipped.has(it.key)) || null; }
   function present(reread) {
     clearProposal(); err(''); $('va-submit').style.display = 'none';
     document.querySelectorAll('.va-current').forEach(n => n.classList.remove('va-current'));
@@ -1166,53 +1232,55 @@ function restartSurvey() {
     if (!it) { sectionDone(); return; }
     const items = itemsOfSection();
     $('va-pos').textContent = `Section ${SECTIONS[currentStep].id} · ${items.filter(answered).length + 1} of ${items.length}`;
+    const qtext = (it.text || '').replace(/<[^>]+>/g, '');
     $('va-stem').textContent = it.kind === 'matrix' ? it.stem.replace(/<[^>]+>/g, '') : '';
-    $('va-q').textContent = (it.text || '').replace(/<[^>]+>/g, '') + (it.f.optional ? '  (optional)' : '');
+    $('va-q').textContent = qtext + (it.f.optional ? '  (optional)' : '');
     $('va-opts').innerHTML = it.kind === 'text'
       ? `<span class="va-opt">${it.f.inputType === 'number' ? 'Say a number' : 'Say the answer'}</span>`
       : it.options.map((o, i) => `<span class="va-opt"><b>${i + 1}</b> ${o}</span>`).join('');
     $('va-skip').style.display = it.f.optional ? '' : 'none';
     const block = document.getElementById('block-' + it.f.id);
     if (block) { block.classList.add('va-current'); block.scrollIntoView({ block: 'center' }); }
-    const afterRead = () => { if (V.mode === 'handsfree' || reread) listen(); else status('Tap Listen when the respondent answers', false); };
-    if (V.speak && window.speechSynthesis) {
-      pauseListening();
-      const u = new SpeechSynthesisUtterance((it.kind === 'matrix' ? it.text : it.text).replace(/<[^>]+>/g, ''));
-      u.lang = 'en-IN'; u.rate = 0.95; u.onend = afterRead; u.onerror = afterRead;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    } else afterRead();
+    V.heard = [];
+    speakThen(qtext, () => { V.wantListen = true; listen(); });
   }
 
-  function handleSpeech(text) {
+  function handleSpeech(alts) {
     if (!V.item) return;
+    const text = alts[0];
     if (V.proposal) {
       // a confirm or reject word may itself be an answer (for example "हो" or "no" to a yes/no question)
-      const asAnswer = interpret(V.item, text);
+      const asAnswer = interpretAny(V.item, alts);
       const differs = V.item.kind !== 'text' && !asAnswer.error && JSON.stringify(asAnswer.value) !== JSON.stringify(V.proposal.value);
-      if (CONFIRM.some(w => isOnly(text, [w])) && !differs) { accept(); return; }
-      if (REJECT.some(w => hasWord(text, w)) && !differs && (asAnswer.error || V.item.kind === 'text')) { clearProposal(); say(text); return; }
+      if (alts.some(a => isOnly(a, CONFIRM)) && !differs) { accept(); return; }
+      if (alts.some(a => REJECT.some(w => hasWord(a, w))) && !differs && (asAnswer.error || V.item.kind === 'text')) { clearProposal(); say(text); return; }
     }
-    if (CMD.repeat.some(w => hasWord(text, w))) { present(true); return; }
-    if (CMD.back.some(w => hasWord(text, w))) { goBackOne(); return; }
-    if (CMD.skip.some(w => isOnly(text, [w]))) { skip(); return; }
-    const r = interpret(V.item, text);
+    if (alts.some(a => CMD.repeat.some(w => isOnly(a, [w]) || hasWord(a, w)) && numbersIn(a).length === 0)) { present(true); return; }
+    if (alts.some(a => CMD.back.some(w => isOnly(a, [w])))) { goBackOne(); return; }
+    if (alts.some(a => CMD.skip.some(w => isOnly(a, [w])))) { skip(); return; }
+    const r = interpretAny(V.item, alts);
     if (r.error) { clearProposal(); err(r.error); return; }
     err('');
     V.proposal = r;
+    if (V.accept === 'now') { accept(); return; }
     const p = $('va-prop');
     p.style.display = 'block';
-    p.textContent = 'Answer: ' + r.show + (V.countdown ? ` — saving in ${V.countdown} s (say "no" to change)` : ' — say "yes" or tap Confirm');
-    if (V.countdown) {
-      V.cdLeft = V.countdown;
-      clearInterval(V.cdTimer);
-      V.cdTimer = setInterval(() => {
-        V.cdLeft--;
-        if (V.cdLeft <= 0) { clearInterval(V.cdTimer); accept(); }
-        else p.textContent = 'Answer: ' + r.show + ` — saving in ${V.cdLeft} s (say "no" to change)`;
-      }, 1000);
-    }
+    $('va-yes').style.display = ''; $('va-no').style.display = '';
+    if (V.accept === 'confirm') { p.textContent = 'Answer: ' + r.show + ' — say "OK" / "बरोबर" or tap Confirm'; return; }
+    V.cdLeft = +V.accept;
+    p.textContent = 'Answer: ' + r.show + ` — saving in ${V.cdLeft} s (say "no" to change)`;
+    clearInterval(V.cdTimer);
+    V.cdTimer = setInterval(() => {
+      V.cdLeft--;
+      if (V.cdLeft <= 0) { clearInterval(V.cdTimer); accept(); }
+      else p.textContent = 'Answer: ' + r.show + ` — saving in ${V.cdLeft} s (say "no" to change)`;
+    }, 1000);
   }
-  function clearProposal() { clearInterval(V.cdTimer); V.proposal = null; const p = $('va-prop'); if (p) p.style.display = 'none'; }
+  function clearProposal() {
+    clearInterval(V.cdTimer); V.proposal = null;
+    const p = $('va-prop'); if (p) p.style.display = 'none';
+    if ($('va-yes')) { $('va-yes').style.display = 'none'; $('va-no').style.display = 'none'; }
+  }
 
   function accept() {
     const it = V.item, r = V.proposal;
@@ -1223,7 +1291,9 @@ function restartSurvey() {
     else if (it.kind === 'multi') { answers[f.id] = r.value; renderSection(); }
     else if (f.id === 'district') { answers.district = r.value; answers.village = ''; renderSection(); }
     else setAnswer(f.id, r.value);
-    V.history.push({ step: currentStep, key: it.key, f: f.id, row: it.row, kind: it.kind });
+    V.history.push({ step: currentStep, f: f.id, row: it.row, kind: it.kind });
+    $('va-saved').textContent = 'Saved: ' + (it.text || '').replace(/<[^>]+>/g, '').slice(0, 60) + ' → ' + r.show;
+    V.ignoreUntil = Date.now() + 600;          // do not carry the tail of this answer into the next question
     say('');
     present(false);
   }
@@ -1238,50 +1308,49 @@ function restartSurvey() {
     if (h.step !== currentStep) { V.history.push(h); err('Use the Back button of the form to return to the previous section.'); return; }
     if (h.kind === 'matrix') { if (answers[h.f]) delete answers[h.f][h.row]; }
     else delete answers[h.f];
+    $('va-saved').textContent = 'Last answer cleared. Please answer it again.';
     renderSection(); present(false);
   }
   function sectionDone() {
     pauseListening();
-    $('va-q').textContent = currentStep < SECTIONS.length - 1 ? 'Section complete.' : 'All questions answered.';
     $('va-stem').textContent = ''; $('va-opts').innerHTML = ''; $('va-skip').style.display = 'none';
     if (currentStep < SECTIONS.length - 1) {
       const before = currentStep;
       goNext();
       if (currentStep !== before) { V.skipped.clear(); V.history = []; setTimeout(() => present(false), 300); }
-      else { err('Some answers need checking: see the red message on the form, correct it by tapping, then tap Repeat.'); }
+      else { $('va-q').textContent = 'Please check this section.'; err('Some answers need checking: see the red message on the form, correct it by tapping, then tap Repeat.'); }
     } else {
-      $('va-opts').innerHTML = '';
-      err('');
-      const p = $('va-prop'); p.style.display = 'block'; p.textContent = 'All answered. Check the answers on screen, then tap Submit response.';
+      $('va-q').textContent = 'All questions answered.';
+      const p = $('va-prop'); p.style.display = 'block'; p.textContent = 'Check the answers on screen, then tap Submit response.';
       $('va-submit').style.display = '';
       status('Done', false);
     }
   }
 
   function start() {
-    if (!SR) { buildOnce(); P.style.display = 'block'; err('Voice input is not available in this browser. Use Chrome on Android or a laptop; tapping still works.'); return; }
     buildOnce();
+    if (!SR) { P.style.display = 'block'; err('Voice input is not available in this browser. Use Chrome on Android or a laptop; tapping still works.'); return; }
     if (document.getElementById('survey').style.display === 'none') startSurvey();
     V.on = true; P.style.display = 'block'; $('va-fab').textContent = 'Stop voice';
     V.skipped.clear(); V.history = [];
+    if (V.speak && window.speechSynthesis) speechSynthesis.getVoices();   // load the voice list early
+    // the first microphone start must come from this tap on some phones
+    V.wantListen = true; safeStart();
     present(false);
   }
   function stop() {
-    V.on = false; pauseListening(); clearProposal();
+    V.on = false; pauseListening(); clearProposal(); V.speaking = false;
     if (window.speechSynthesis) speechSynthesis.cancel();
     if (P) P.style.display = 'none';
     const fab = $('va-fab'); if (fab) fab.textContent = 'Voice mode';
     document.querySelectorAll('.va-current').forEach(n => n.classList.remove('va-current'));
   }
-  let built = false;
-  function buildOnce() { if (!built) { buildPanel(); built = true; } }
 
-  // stop listening when the survey is submitted or restarted
   const _show = window.showThankYou;
   if (typeof _show === 'function') window.showThankYou = function () { stop(); return _show.apply(this, arguments); };
 
   window.addEventListener('load', buildOnce);
-  window.VoiceAssistant = { start, stop, _interpret: interpret, _numbersIn: numbersIn, _state: V, _handle: t => handleSpeech(t) };
+  window.VoiceAssistant = { start, stop, _interpret: interpret, _numbersIn: numbersIn, _state: V, _handle: t => handleSpeech([].concat(t)) };
 })();
 
 </script>
