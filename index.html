@@ -1088,7 +1088,7 @@ function restartSurvey() {
     document.body.appendChild(fab);
     P = el('div', { id: 'va-panel' });
     P.innerHTML = `
-      <div class="va-top"><span><span class="va-dot" id="va-dot"></span><span id="va-status">Off</span></span><span id="va-pos"></span></div>
+      <div class="va-top"><span><span class="va-dot" id="va-dot"></span><span id="va-status">Off</span></span><span id="va-pos"></span> <span style="opacity:.6">voice v3</span></div>
       <div class="va-saved" id="va-saved"></div>
       <div class="va-stem" id="va-stem"></div>
       <div class="va-q" id="va-q"></div>
@@ -1115,7 +1115,7 @@ function restartSurvey() {
       </div>
       <div style="font-size:11px;color:#7a5a3c;margin-top:8px">Ask the respondent's permission before using voice. Speech is turned into text by the browser's speech service (it needs internet); the form does not save audio. Say "मागे" or "back" to change the last answer.</div>`;
     document.body.appendChild(P);
-    $('va-listen').onclick = () => (V.wantListen ? pauseListening() : listen());
+    $('va-listen').onclick = async () => { if (V.wantListen) { pauseListening(); return; } if (await micPreflight()) listen(); else err(micMsg); };
     $('va-yes').onclick = () => accept();
     $('va-no').onclick = () => { clearProposal(); say(''); };
     $('va-repeat').onclick = () => present(true);
@@ -1162,7 +1162,7 @@ function restartSurvey() {
     };
     r.onerror = e => {
       V.lastError = e.error;
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { V.wantListen = false; err('The microphone is blocked. Tap the lock icon next to the web address, allow Microphone, then tap Listen.'); }
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { V.wantListen = false; explainBlocked(e.error); }
       else if (e.error === 'network') { err('No internet for speech-to-text. Tap the answers for now; voice resumes when the network is back.'); }
       else if (e.error === 'audio-capture') { err('No microphone found. Check the phone microphone, or close other apps using it.'); }
       else if (e.error === 'language-not-supported') { err('This language is not supported here. Choose English (India) in Settings.'); }
@@ -1202,6 +1202,44 @@ function restartSurvey() {
   function restartRec() { const was = V.wantListen; pauseListening(); V.rec = null; if (was) setTimeout(listen, 300); }
   // keep-alive: some phones end the microphone session silently
   setInterval(() => { if (V.on && V.wantListen && !V.speaking && !V.listening) safeStart(); }, 2000);
+
+  // ---------- finding out why the microphone is refused ----------
+  function setupProblem() {
+    if (!window.isSecureContext) return 'This page was opened as a file or over http. Open the form from its https:// web address in Chrome; browsers only allow the microphone there.';
+    let framed = false; try { framed = window.self !== window.top; } catch (e) { framed = true; }
+    if (framed) return 'The form is open inside another app\'s viewer (for example a chat or file preview), which blocks the microphone. Open the form link directly in Chrome.';
+    if (/; wv\)|FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent)) return 'The form is open inside an app\'s built-in browser, which blocks voice input. Use the menu to choose "Open in Chrome".';
+    return '';
+  }
+  let micChecked = false, micMsg = '';
+  async function micPreflight() {
+    // ask for the microphone directly once, so the browser's own permission prompt appears
+    micMsg = '';
+    if (micChecked || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      micChecked = true; return true;
+    } catch (e) {
+      if (e.name === 'NotAllowedError' || e.name === 'SecurityError') {
+        micMsg = ('The microphone is refused for this page. In Chrome: tap the icon left of the web address > Permissions > Microphone > Allow. On Android also check Settings > Apps > Chrome > Permissions > Microphone > Allow. Then reload the page.');
+      } else if (e.name === 'NotFoundError') micMsg = 'No microphone found on this device.';
+      else if (e.name === 'NotReadableError') micMsg = 'Another app is using the microphone. Close it (calls, recorder, WhatsApp voice) and tap Listen.';
+      else micMsg = 'Microphone check failed: ' + e.name;
+      err(micMsg);
+      return false;
+    }
+  }
+  function explainBlocked(code) {
+    const p = setupProblem();
+    if (p) { err(p); return; }
+    if (micChecked) {
+      // the page has the microphone, so it is the speech service that refused
+      err('Chrome can use the microphone, but the phone\'s speech-to-text service is refused (' + code + '). On Android: Settings > Apps > Google > Permissions > Microphone > Allow, and make sure the Google app is turned on and updated. Samsung Internet, Firefox and Brave do not offer speech-to-text; use Chrome.');
+    } else {
+      err('The microphone is blocked (' + code + '). In Chrome: tap the icon left of the web address > Permissions > Microphone > Allow, then reload the page and tap Voice mode again.');
+    }
+  }
 
   // ---------- reading the question aloud ----------
   function speakThen(text, done) {
@@ -1327,14 +1365,18 @@ function restartSurvey() {
     }
   }
 
-  function start() {
+  async function start() {
     buildOnce();
+    const problem = setupProblem();
+    if (problem) { P.style.display = 'block'; $('va-fab').textContent = 'Stop voice'; V.on = true; err(problem); return; }
     if (!SR) { P.style.display = 'block'; err('Voice input is not available in this browser. Use Chrome on Android or a laptop; tapping still works.'); return; }
     if (document.getElementById('survey').style.display === 'none') startSurvey();
     V.on = true; P.style.display = 'block'; $('va-fab').textContent = 'Stop voice';
     V.skipped.clear(); V.history = [];
     if (V.speak && window.speechSynthesis) speechSynthesis.getVoices();   // load the voice list early
     // the first microphone start must come from this tap on some phones
+    const micOk = await micPreflight();
+    if (!micOk) { present(false); pauseListening(); status('Microphone not available — tap the answers', false); err(micMsg); return; }
     V.wantListen = true; safeStart();
     present(false);
   }
