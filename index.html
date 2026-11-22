@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tourist Survey – Berhampur University</title>
+<title>Local Community Survey – Berhampur University</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -312,6 +312,7 @@ background:linear-gradient(
 @keyframes fadeUp { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform:none; } }
 .fade-up { animation: fadeUp .7s cubic-bezier(.22,.61,.36,1) both; }
 </style>
+</head>
 <body>
 
 <!-- ══════════════════════════════════════════════════ COVER -->
@@ -328,8 +329,8 @@ background:linear-gradient(
     <div class="fade-up" style="animation-delay:.22s">
       <h1 class="cover-title">Rural Tourism &amp; Community Engagement<br>for Sustainable Livelihood</h1>
     </div>
-    <div class="fade-up" style="animation-delay:.28s"><p class="cover-sub">Tourist / Visitor Survey</p></div>
-    <div class="fade-up" style="animation-delay:.32s"><p class="cover-meta">Empirical Evidence from Maharashtra &nbsp;·&nbsp; approx. 6–8 minutes</p></div>
+    <div class="fade-up" style="animation-delay:.28s"><p class="cover-sub">Local / Household Community Survey</p></div>
+    <div class="fade-up" style="animation-delay:.32s"><p class="cover-meta">Empirical Evidence from Maharashtra &nbsp;·&nbsp; approx. 10–12 minutes</p></div>
     <div class="fade-up" style="animation-delay:.38s">
       <div class="cover-card">
         <p>All information you provide will be kept strictly confidential and used solely for academic research. Your participation is entirely voluntary and individual responses will never be shared — only aggregated findings are reported.</p>
@@ -363,12 +364,12 @@ background:linear-gradient(
     <div class="survey-header-inner">
       <div class="survey-header-top">
         <div>
-          <div class="header-label">Berhampur University · Tourist Survey</div>
-          <div class="header-title" id="section-title">Section A · Tourist Profile</div>
+          <div class="header-label">Berhampur University · Rural Tourism Survey</div>
+          <div class="header-title" id="section-title">Section A · Socio-Demographic Information</div>
         </div>
-        <div class="step-badge" id="step-badge">Step 1 / 3</div>
+        <div class="step-badge" id="step-badge">Step 1 / 7</div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:33%"></div></div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:14%"></div></div>
     </div>
   </div>
 
@@ -398,18 +399,14 @@ background:linear-gradient(
 
 <script>
 // ══════════════════════════════════════════════════════════════
-//  CONFIGURATION
-//  This survey submits to the Google Sheet:
-//  https://docs.google.com/spreadsheets/d/1vv8kONZCi9IizDcMSn7RyEuN1hxMMJQXnY0HNa-lUTU/edit
-//  via a Google Apps Script Web App bound to that sheet.
-//  Paste the deployed Web App URL below — see the setup steps in the
-//  chat message this file was delivered with (Apps Script code included).
+//  CONFIGURATION — paste your Google Apps Script Web App URL here
+//  after completing the 3-step setup in the README below.
 // ══════════════════════════════════════════════════════════════
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzD8mhtci8lng9-7srCjMwMPA0QY2I3dj4N3s0Pcl72lY3t4rii3JvuG3AVTRcNWkP9Rw/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz5g-ELhW7N8CGNgfy7TAHdWXsxcqQx8qNJ-N8k5ITV5W5C_jtG2TNHI1iHnx90kLJsMA/exec";
 
 const FORM_VERSION = "v2 (4 Nov 2026)";
-const SURVEY_CODE = "tourist";
-const ID_PREFIX = "TSQ-";
+const SURVEY_CODE = "local";
+const ID_PREFIX = "RTS-";
 
 // ══════════════════════════════════════════════════════════════
 //  DISTRICT → DESTINATION MAP
@@ -428,24 +425,13 @@ const DISTRICTS = {
 // ══════════════════════════════════════════════════════════════
 //  SCALE DEFINITIONS
 // ══════════════════════════════════════════════════════════════
-const AGREE      = ["Strongly disagree","Disagree","Neutral","Agree","Strongly agree"];
-const SATISFY    = ["Very dissatisfied","Dissatisfied","Neutral","Satisfied","Very satisfied"];
-const INFLUENCE  = ["Very low influence","Low influence","Moderate influence","High influence","Very high influence"];
-const IMPORTANCE = ["Not important at all","Slightly important","Moderately important","Important","Very important"];
-const IMPORTANCE2= ["Not important","Slightly important","Moderately important","Important","Very important"];
-
-// ══════════════════════════════════════════════════════════════
-//  INDIAN STATES & UNION TERRITORIES
-// ══════════════════════════════════════════════════════════════
-const INDIAN_STATES = [
-  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa",
-  "Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala",
-  "Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland",
-  "Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura",
-  "Uttar Pradesh","Uttarakhand","West Bengal",
-  "Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu",
-  "Delhi (NCT)","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"
-];
+const AGREE     = ["Strongly disagree","Disagree","Neutral","Agree","Strongly agree"];
+const EFFECT    = ["Strongly negative","Negative","No effect","Positive","Strongly positive"];
+const SATISFY   = ["Not satisfied","Slightly satisfied","Moderately satisfied","Satisfied","Highly satisfied"];
+const PERCEPT   = ["Very negative","Negative","Neutral","Positive","Very positive"];
+const BENEFIT   = ["Very low","Low","Moderate","High","Very high"];
+const SUPPORT   = ["Strongly oppose","Oppose","Neutral","Support","Strongly support"];
+const CHALLENGE = ["Not a challenge","Minor challenge","Moderate challenge","Major challenge","Very major challenge"];
 
 // ══════════════════════════════════════════════════════════════
 //  SECTIONS  (id, title, intro, fields[])
@@ -454,105 +440,172 @@ const INDIAN_STATES = [
 // ══════════════════════════════════════════════════════════════
 const SECTIONS = [
 {
-  id:"A", title:"Tourist Profile",
-  intro:"Please share a few basic details about yourself and your trip.",
+  id:"A", title:"Socio-Demographic Information",
+  intro:"Please share a few basic details about yourself and your household.",
   fields:[
     {id:"consent", type:"single", label:"[Interviewer] Purpose explained and respondent agrees to take part (verbal consent)", options:["Yes, agrees","No, does not agree"], mustBe:"Yes, agrees", errorMsg:"Consent is required. If the person does not agree, thank them and do not continue.", required:true},
-    {
-      id:"district",
-      type:"select",
-      label:"District",
-      options:Object.keys(DISTRICTS),
-      required:true
-    },
-    {
-      id:"village",
-      type:"select",
-      label:"Village / Tourism Destination Visited",
-      dynamicOptions:true,
-      required:true
-    },
-    {id:"A1", type:"single", label:"A1. Age Group", options:["18-25","26-35","36-45","46-60","Above 60"], required:true},
+{
+    id:"district",
+    type:"select",
+    label:"District",
+    options:Object.keys(DISTRICTS),
+    required:true
+},
+{
+    id:"village",
+    type:"select",
+    label:"Village / Tourism Destination",
+    dynamicOptions:true,
+    required:true
+},
+    {id:"A1", type:"single", label:"A1. Age group (in years)", options:["18–26","27–45","46–60","Above 60"], required:true},
     {id:"A2", type:"single", label:"A2. Gender", options:["Male","Female","Other / Prefer not to say"], required:true},
-    {id:"A3", type:"single", label:"A3. Education Level", options:["Primary","Secondary","Higher Secondary","Graduate","Postgraduate","Doctorate"], required:true},
-    {id:"A4", type:"single", label:"A4. Occupation", options:["Student","Private Service","Government","Business","Professional","Self-employed","Retired","Homemaker","Not employed","Other"], required:true},
-    {id:"A5", type:"single", label:"A5. Monthly Income", options:["No personal income","Up to ₹25,000","₹25,001 - ₹50,000","₹50,001 - ₹75,000","₹75,001 - ₹1,00,000","Above ₹1,00,000","Prefer not to say"], required:true},
-    {id:"A6", type:"single", label:"A6. Nationality", options:["Indian","Foreigner"], required:true},
-    {id:"A6_state", type:"select", label:"If Indian — State", options:INDIAN_STATES, showIf:{field:"A6",val:"Indian"}, required:true},
-    {id:"A6_country", type:"text", label:"If Foreigner — Country", showIf:{field:"A6",val:"Foreigner"}, required:true},
-    {id:"A8", type:"single", label:"A8. Duration of Stay", options:["Same day","1 night","2 nights","3-5 nights",">5 nights"], required:true},
-    {id:"A9", type:"text", inputType:"number", label:"A9. Overall Trip Expenditure (₹)", required:true},
-    {id:"A10", type:"single", label:"A10. Are you a first-time visitor to a rural destination?", options:["Yes","No"], required:true},
+    {id:"A3", type:"single", label:"A3. Educational Level", options:["No Formal Education","Primary (1st-5th)","Secondary (6th-10th)","Higher Secondary (11th-12th)","Diploma / ITI","Graduate","Postgraduate & Above"], required:true},
+    {id:"A4", type:"single", label:"A4. Marital Status", options:["Single","Married","Widowed","Divorced / Separated"], required:true},
+    {id:"A5", type:"single", label:"A5. Current Occupation", options:["Agriculture","Fishing","Tourism-Related Work","Business / Self-Employed","Service (Private / Government)","Daily Wage Labour","Homemaker","Student","Retired","Not employed","Other"], required:true},
+    {id:"A6", type:"single", label:"A6. Years living in this village / area", options:["Less than 2 years","2-5 years","6-10 years","11-20 years","More than 20 years"], required:true},
+    {id:"A7", type:"single", label:"A7. Residential Status", options:["Local Native (Born and Brought Up Here)","Migrant (Shifted from Another Place)"], required:true},
+    {id:"A7_year", type:"text", label:"If migrant — Year of migration", showIf:{field:"A7",val:"Migrant (Shifted from Another Place)"}, optional:true},
+    {id:"A7_from", type:"text", label:"If migrant — Migrated from (place)", showIf:{field:"A7",val:"Migrant (Shifted from Another Place)"}, optional:true},
+    {id:"A8a", type:"single", label:"A8(a). Monthly family income — from tourism-related activities", options:["No income from tourism","Up to Rs.10,000","Rs.10,001 - Rs.25,000","Rs.25,001 - Rs.50,000","Above Rs.50,000"], optional:true},
+    {id:"A8b", type:"single", label:"A8(b). Monthly family income — from other sources", options:["No income from other sources","Up to Rs.10,000","Rs.10,001 - Rs.25,000","Rs.25,001 - Rs.50,000","Above Rs.50,000"], optional:true},
+    {id:"A9", type:"single", label:"A9. Total number of household members", options:["1 to 2","3 to 4","5 to 6","More than 6"], required:true},
   ]
 },
 {
-  id:"B", title:"Travel Behaviour",
-  intro:"These questions explore your travel habits and what motivated this visit.",
+  id:"B", title:"Household Participation in Tourism",
+  intro:"These questions explore how your household participates in tourism-related work.",
   fields:[
-    {id:"B1", type:"single", label:"B1. How many annual holiday trips do you take?", options:["1","2","3",">3"], required:true},
-    {id:"B2", type:"matrix", label:"B2. Please indicate how influential each of the following information sources was in your decision to visit this destination.", scale:INFLUENCE,
-      rows:["Internet","Friends/Family","Social media","Travel Agent","Television/Print Media"], required:true},
-    {id:"B3", type:"single", label:"B3. Are you aware of community-based tourism?", options:["Yes","No"], required:true},
-    {id:"B4", type:"matrix", label:"B4. Please indicate the importance of the following factors in motivating your visit to this destination.", scale:IMPORTANCE,
-      rows:["Natural Beauty","Culture and Heritage","Rural Experience","Adventure Activities","Peace and Relaxation","Affordability","Recommendations from Friends/Family","Social Media Influence"], required:true},
-    {id:"B5", type:"single", label:"B5. Is this your first visit to this destination?", options:["Yes","No"], required:true},
-    {id:"B6", type:"single", label:"B6. Who are your travel companions?", options:["Alone","Family","Friends","Group"], required:true},
-    {id:"B7", type:"likert", label:"B7. Overall, how satisfied are you with your current visit to this destination?", scale:SATISFY, required:true},
-    {id:"B8", type:"matrix", label:"B8. What was the reason for your response to the previous question?", scale:AGREE,
+    {id:"B1", type:"single", label:"B1. Are you or any household member involved in tourism-related activities / services?", options:["Yes","No"], required:true},
+    {id:"B2", type:"multi", showIf:{field:"B1",val:"Yes"},  label:"B2. What type of tourism activities / services do you provide?", options:["Accommodation","Food Services","Transportation","Tourist Guiding","Handicrafts","Ticketing","Cultural Activities"], required:true},
+    {id:"B3", type:"single", showIf:{field:"B1",val:"Yes"}, label:"B3. How are you currently involved in tourism-related activities?", options:["Full-Time (Primary)","Part-Time (Secondary)","Seasonal","Supportive Role"], required:true},
+    {id:"B4", type:"single", showIf:{field:"B1",val:"Yes"}, label:"B4. Is tourism your primary source of income?", options:["Yes","No"], required:true},
+    {id:"B5_total", showIf:{field:"B1",val:"Yes"},   type:"text", label:"B5. Household members involved in tourism — Total",  inputType:"number", optional:true, errorMsg:"Male, female and youth numbers cannot be more than the total.", check:a => { if (a.B5_total===undefined || a.B5_total==="") return true; const t=+a.B5_total, m=+a.B5_male||0, f=+a.B5_female||0, y=+a.B5_youth||0; return m<=t && f<=t && y<=t; }},
+    {id:"B5_male", showIf:{field:"B1",val:"Yes"},    type:"text", label:"B5. Household members — Male",   inputType:"number", optional:true},
+    {id:"B5_female", showIf:{field:"B1",val:"Yes"},  type:"text", label:"B5. Household members — Female", inputType:"number", optional:true},
+    {id:"B5_youth", showIf:{field:"B1",val:"Yes"},   type:"text", label:"B5. Household members — Youth (18-35)", inputType:"number", optional:true},
+    {id:"B6",  type:"likert", label:"B6. Is your household depending heavily on tourism for livelihood?", scale:AGREE, required:true},
+    {id:"B7",  type:"single", showIf:{field:"B1",val:"Yes"}, label:"B7. Approx. days per year engaged in tourism-related work?", options:["Less than 60","60-120","121-180","181-240","More than 240"], required:true},
+    {id:"B8",  type:"single", showIf:{field:"B1",val:"Yes"}, label:"B8. How long have you been involved in tourism-related activities?", options:["Less than 2 years","2-5 years","6-10 years","More than 10 years"], required:true},
+    {id:"B9",  type:"single", label:"B9. Have you received any tourism-related training?", options:["Yes","No"], required:true},
+    {id:"B9_type",     type:"text", label:"If yes — Type of training", showIf:{field:"B9",val:"Yes"}, optional:true},
+    {id:"B9_provider", type:"text", label:"If yes — Provider",         showIf:{field:"B9",val:"Yes"}, optional:true},
+    {id:"B10", type:"likert", label:"B10. Tourism effect on household income", scale:EFFECT, required:true},
+    {id:"B11", type:"likert", showIf:{field:"B1",val:"Yes"}, label:"B11. Satisfaction with your personal involvement in tourism", scale:SATISFY, required:true},
+    {id:"B12", type:"matrix", label:"B12. Do you feel the local community has adequate opportunities to participate in tourism?", scale:AGREE,
       rows:[
-        "The destination offers a unique experience.",
-        "The destination provides good value for money.",
-        "The local people are friendly and welcoming.",
-        "The destination has adequate infrastructure.",
-        "The cost of visiting the destination is reasonable.",
-        "The destination is not overcrowded.",
-        "The destination met my expectations during my visit."
-      ], required:true},
-    {id:"B9", type:"matrix", label:"B9. Please indicate your level of agreement with the following statements.", scale:AGREE,
-      rows:[
-        "I would like to revisit this destination in the future.",
-        "I would recommend this destination to my friends, relatives, and colleagues."
-      ], required:true},
+        "Residents have sufficient employment opportunities in tourism.",
+        "The local community is involved in tourism planning and decision-making.",
+        "Local people have opportunities to sell local products and handicrafts to tourists.",
+        "Tourism provides fair economic benefits to the local community.",
+        "Residents receive adequate training and skill development for tourism-related jobs.",
+        "Government and tourism authorities encourage community participation in tourism development.",
+        "Tourism businesses actively involve local people in their operations.",
+        "Overall, the local community has adequate opportunities to participate in tourism."
+      ], required:true}
   ]
 },
 {
-  id:"C", title:"Satisfaction and Perceptions",
+  id:"C", title:"Community Perceptions",
   fields:[
-    {id:"C1", type:"matrix", label:"C1. How satisfied were you with the following aspects of this rural destination?", scale:SATISFY,
+    {id:"C1",  type:"likert", label:"C1. Your overall perception of tourism development", scale:PERCEPT, required:true},
+    {id:"C2",  type:"likert", label:"C2. Tourism has created employment opportunities for the local community.", scale:AGREE, required:true},
+    {id:"C3",  type:"likert", label:"C3. Rate the economic benefits the local community receives from tourism.", scale:BENEFIT, required:true},
+    {id:"C4",  type:"likert", label:"C4. The local community has a good relationship with tourism businesses.", scale:AGREE, required:true},
+    {id:"C5",  type:"likert", label:"C5. Tourism stakeholders involve the local community in planning and decision-making.", scale:AGREE, required:true},
+    {id:"C6",  type:"likert", label:"C6. Tourism development in your area is well managed.", scale:AGREE, required:true},
+    {id:"C7",  type:"likert", label:"C7. I support further tourism development in my community.", scale:SUPPORT, required:true},
+    {id:"C8",  type:"matrix", label:"C8. Impacts of tourism in your community: please indicate your level of agreement with each statement.", scale:AGREE,
       rows:[
-        "Infrastructure (accommodation/transport)",
-        "Hospitality/service",
-        "Environmental efforts",
-        "Cultural authenticity",
-        "Natural beauty",
-        "Cultural heritage",
-        "Accessibility",
-        "Marketing info"
+        "Tourism creates local jobs.",
+        "Tourism increases local income.",
+        "Tourism improves local infrastructure.",
+        "Tourism promotes cultural exchange.",
+        "Tourism creates business opportunities.",
+        "Tourism causes overcrowding.",
+        "Tourism increases the cost of living.",
+        "Tourism increases environmental pollution.",
+        "Tourism causes conflicts with tourists.",
+        "Tourism provides only seasonal income.",
+        "Tourism weakens local culture and traditions."
       ], required:true},
-    {id:"C2", type:"matrix", label:"C2. Please indicate your level of agreement with the following statements.", scale:AGREE,
+    {id:"C9", type:"single", label:"C9. Have you received financial assistance for tourism activities?", options:["Yes","No"], required:true},
+    {id:"C9_type", type:"multi", label:"If Yes — Type of assistance", options:["Loan / Subsidy","Equipment Support","Infrastructure","Training Subsidy","Marketing"], showIf:{field:"C9",val:"Yes"}, optional:true},
+    {id:"C10", type:"single", label:"C10. Are you aware of government tourism schemes / policies?", options:["Yes","No","Not Sure"], required:true},
+    {id:"C10_which", type:"text", label:"If Yes — Which schemes?", showIf:{field:"C10",val:"Yes"}, optional:true},
+    {id:"C11", type:"single", label:"C11. Have you benefited from tourism-related government schemes?", options:["Yes","No"], required:true},
+    {id:"C11_reason", type:"multi", label:"If No — Reason", options:["Lack of Awareness","No Eligibility","No Documents","Not Available","Other"], showIf:{field:"C11",val:"No"}, optional:true},
+    {id:"C12", type:"matrix", label:"C12. Contribution of tourism to rural development in your area", scale:AGREE,
       rows:[
-        "The destination allows visitors to experience the local way of life",
-        "Interesting local culture",
-        "Good accommodation/food",
-        "Community involvement",
-        "Helpful guides/services",
-        "Easy info access",
-        "Tourism facilities are appropriate",
-        "Clean/maintained",
-        "Helped local livelihood",
-        "Overall satisfied",
-        "Destination provides meaningful opportunities to interact with the local community",
-        "Tourism activities at this destination provide benefits to the local community"
+        "Tourism has contributed to overall rural development in my area.",
+        "Tourism has improved road infrastructure.",
+        "Tourism has improved sanitation and cleanliness.",
+        "Tourism has enhanced livelihood opportunities for residents.",
+        "Tourism has created or expanded local market opportunities.",
+        "Tourism has improved public facilities and community services.",
+        "Tourism has increased access to training and skill development opportunities."
       ], required:true},
-    {id:"C3", type:"matrix", label:"C3. Please indicate your level of agreement with the following statements about sustainable tourism at this destination.", scale:AGREE,
+    {id:"C13a", type:"likert", label:"C13a. I am satisfied with the tourism activities taking place in my community.", scale:AGREE, required:true},
+    {id:"C13b", type:"likert", label:"C13b. I would like to actively participate in tourism-related activities in the future.", scale:AGREE, required:true},
+  ]
+},
+{
+  id:"D", title:"Barriers and Support",
+  intro:"Please indicate your level of agreement with the following statements.",
+  fields:[
+    {id:"D", type:"matrix", label:"", scale:AGREE,
       rows:[
-        "Tourism development at this destination supports environmental conservation.",
-        "Tourism development helps preserve local culture and traditions.",
-        "Tourism benefits are shared with the local community.",
-        "Tourists are encouraged to behave responsibly toward the local environment.",
-        "Tourism development respects the local way of life.",
-        "The destination promotes responsible and sustainable tourism practices."
-      ], required:true},
+        "Significant financial barriers limit tourism participation.",
+        "I can easily access loans for tourism activities.",
+        "Tourism gives my household a stable income.",
+        "Tourism income is too seasonal and uncertain.",
+        "I have adequate skills / training for tourism.",
+        "Tourism training is easily available to us.",
+        "I am involved in tourism decision-making.",
+        "Community is empowered by tourism.",
+        "Adequate stakeholder / government support exists.",
+        "Infrastructure supports tourism growth.",
+        "Marketing / promotion of local tourism is effective."
+      ], required:true}
+  ]
+},
+{
+  id:"E", title:"Tourism Impacts",
+  intro:"Please indicate your level of agreement with the following statements.",
+  fields:[
+    {id:"E_family", type:"matrix", label:"1. Family / household impacts", scale:AGREE,
+      rows:["Tourism increased household income.","Improved financial security.","Better access to food / healthcare / education.","Improved housing / amenities."], required:true},
+    {id:"E_community", type:"matrix", label:"2. Community impacts", scale:AGREE,
+      rows:["Improved village infrastructure.","Strengthened local businesses.","Increased village reputation.","Promoted social cohesion.","More opportunities for youth / women."], required:true},
+    {id:"E_societal", type:"matrix", label:"3. Societal impacts", scale:AGREE,
+      rows:["Preserved / promoted local culture and heritage.","Contributes to the regional economy.","Strengthened inter-community relations.","Promotes environmental conservation.","Enhanced governance / policies."], required:true},
+  ]
+},
+{
+  id:"F", title:"Perceived Challenges of Tourism Development",
+  intro:"Please indicate the extent to which you perceive the following challenges resulting from tourism development in your area.",
+  fields:[
+    {id:"F1", type:"matrix", label:"", scale:CHALLENGE,
+      rows:[
+        "Pollution","Improper waste management","Depletion of natural resources",
+        "Conflicts between tourists and residents","Loss of local culture and traditions",
+        "Changes in local values and moral standards","Scarcity of land for residents",
+        "Property or land ownership disputes","Unequal distribution of tourism benefits",
+        "Increase in prices of goods and services","Seasonal employment and income"
+      ], required:true}
+  ]
+},
+{
+  id:"G", title:"Personal Benefits",
+  intro:"Please indicate your level of agreement with the following statements regarding the benefits of tourism in your community.",
+  fields:[
+    {id:"G", type:"matrix", label:"", scale:AGREE,
+      rows:[
+        "Tourism increased my personal income / employment.",
+        "Improved my skills / knowledge.",
+        "Enhanced my confidence / social skills.",
+        "Created women's empowerment opportunities."
+      ], required:true}
   ]
 }
 ];
@@ -878,7 +931,6 @@ function restartSurvey() {
   document.getElementById('thankyou').style.display = 'none';
   document.getElementById('cover').style.display = 'flex';
 }
-
 </script>
 
 <script>
@@ -898,17 +950,19 @@ function restartSurvey() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const ANDROID = /Android/i.test(navigator.userAgent);
   const store = {
-    get(k, d) { try { const v = localStorage.getItem('va2_' + k); return v === null ? d : v; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('va2_' + k, v); } catch (e) {} }
+    get(k, d) { try { const v = localStorage.getItem('va3_' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('va3_' + k, v); } catch (e) {} }
   };
   const V = {
     on: false, rec: null, listening: false, wantListen: false, speaking: false,
     lang: store.get('lang', 'mr-IN'),
-    wait: +store.get('wait', '1.5'),        // seconds of silence before the answer is taken
+    wait: +store.get('wait', '0.7'),        // seconds of silence before the answer is taken
     accept: store.get('accept', 'now'),     // now | 2 | 3 | 5 | confirm
     speak: store.get('speak', '0') === '1',
     item: null, proposal: null, heard: [], timer: null, cdTimer: null, cdLeft: 0,
-    ignoreUntil: 0, utter: null, skipped: new Set(), history: [], lastError: ''
+    ignoreUntil: 0, utter: null, skipped: new Set(), history: [], lastError: '',
+    input: store.get('input', 'browser'),   // browser = Chrome speech recognition | keyboard = phone keyboard microphone
+    interim: '', log: []
   };
 
   // ---------- understanding spoken answers ----------
@@ -1088,18 +1142,20 @@ function restartSurvey() {
     document.body.appendChild(fab);
     P = el('div', { id: 'va-panel' });
     P.innerHTML = `
-      <div class="va-top"><span><span class="va-dot" id="va-dot"></span><span id="va-status">Off</span></span><span id="va-pos"></span> <span style="opacity:.6">voice v3</span></div>
+      <div class="va-top"><span><span class="va-dot" id="va-dot"></span><span id="va-status">Off</span></span><span id="va-pos"></span> <span style="opacity:.6">voice v5</span></div>
       <div class="va-saved" id="va-saved"></div>
       <div class="va-stem" id="va-stem"></div>
       <div class="va-q" id="va-q"></div>
       <div class="va-opts" id="va-opts"></div>
       <div class="va-heard" id="va-heard"></div>
+      <input id="va-type" type="text" autocomplete="off" placeholder="Tap here, then press the keyboard microphone and speak" style="display:none;width:100%;box-sizing:border-box;padding:12px;font-size:17px;border:2px solid #c9ab86;border-radius:10px;margin:6px 0">
       <div class="va-prop" id="va-prop"></div>
       <div class="va-err" id="va-err"></div>
       <div class="va-btns">
         <button type="button" class="va-main" id="va-listen">Listen</button>
         <button type="button" class="va-ok" id="va-yes" style="display:none">Confirm</button>
         <button type="button" id="va-no" style="display:none">Change</button>
+        <button type="button" class="va-ok" id="va-next" style="display:none">Next</button>
         <button type="button" id="va-repeat">Repeat</button>
         <button type="button" id="va-back">Back</button>
         <button type="button" id="va-skip">Skip</button>
@@ -1109,15 +1165,19 @@ function restartSurvey() {
       </div>
       <div class="va-set" id="va-set">
         <label>Language<select id="va-lang"><option value="mr-IN">Marathi + English</option><option value="hi-IN">Hindi + English</option><option value="en-IN">English (India)</option></select></label>
-        <label>Wait after speaking<select id="va-wait">${[1, 1.5, 2, 3, 4, 6].map(s => `<option value="${s}">${s} s</option>`).join('')}</select></label>
+        <label>Wait after speaking<select id="va-wait">${[0.5, 0.7, 1, 1.5, 2, 3, 4].map(s => `<option value="${s}">${s} s</option>`).join('')}</select></label>
         <label>Save the answer<select id="va-accept"><option value="now">At once, then next question</option><option value="2">After 2 s</option><option value="3">After 3 s</option><option value="5">After 5 s</option><option value="confirm">Only when I confirm</option></select></label>
+        <label>Voice input<select id="va-input"><option value="browser">Chrome speech recognition</option><option value="keyboard">Phone keyboard microphone (Gboard)</option></select></label>
         <label>Read question aloud<select id="va-speak"><option value="0">No (I read it)</option><option value="1">Yes</option></select></label>
       </div>
+      <div style="margin-top:8px"><button type="button" id="va-logbtn">Show microphone log</button></div>
+      <pre id="va-log" style="display:none;white-space:pre-wrap;font-size:11px;background:#fff;border:1px solid #d9c4a6;border-radius:8px;padding:8px;max-height:30vh;overflow:auto"></pre>
       <div style="font-size:11px;color:#7a5a3c;margin-top:8px">Ask the respondent's permission before using voice. Speech is turned into text by the browser's speech service (it needs internet); the form does not save audio. Say "मागे" or "back" to change the last answer.</div>`;
     document.body.appendChild(P);
     $('va-listen').onclick = async () => { if (V.wantListen) { pauseListening(); return; } if (await micPreflight()) listen(); else err(micMsg); };
     $('va-yes').onclick = () => accept();
     $('va-no').onclick = () => { clearProposal(); say(''); };
+    $('va-next').onclick = () => typedNext();
     $('va-repeat').onclick = () => present(true);
     $('va-back').onclick = () => goBackOne();
     $('va-skip').onclick = () => skip();
@@ -1128,7 +1188,23 @@ function restartSurvey() {
     $('va-lang').onchange = e => { V.lang = e.target.value; store.set('lang', V.lang); restartRec(); };
     $('va-wait').onchange = e => { V.wait = +e.target.value; store.set('wait', V.wait); };
     $('va-accept').onchange = e => { V.accept = e.target.value; store.set('accept', V.accept); };
+    $('va-input').value = V.input;
+    $('va-input').onchange = e => { V.input = e.target.value; store.set('input', V.input); applyInputMode(); };
+    $('va-logbtn').onclick = () => { const b = $('va-log'); const show = b.style.display === 'none'; b.style.display = show ? 'block' : 'none';
+      $('va-logbtn').textContent = show ? 'Hide microphone log' : 'Show microphone log'; if (show) b.textContent = V.log.slice().reverse().join('\n') || 'No microphone events yet.'; };
+    // keyboard dictation: the text is taken after the same pause as speech, or at once on Enter
+    let typeTimer = null;
+    const takeTyped = () => { const v = $('va-type').value.trim(); if (!v) return; $('va-type').value = ''; log('typed/dictated: ' + v); handleSpeech([v]); };
+    $('va-type').addEventListener('input', () => { clearTimeout(typeTimer); typeTimer = setTimeout(takeTyped, Math.max(1500, V.wait * 1000)); });
+    $('va-type').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(typeTimer); takeTyped(); } });
     $('va-speak').onchange = e => { V.speak = e.target.value === '1'; store.set('speak', V.speak ? '1' : '0'); };
+  }
+  function applyInputMode() {
+    const kb = V.input === 'keyboard';
+    $('va-type').style.display = kb ? 'block' : 'none';
+    $('va-listen').style.display = kb ? 'none' : '';
+    if (kb) { pauseListening(); status('Keyboard microphone: tap the box, then the keyboard mic', false); }
+    else if (V.on) listen();
   }
   function buildOnce() { if (!built) { buildPanel(); built = true; } }
   function status(t, on) { $('va-status').textContent = t; $('va-dot').className = 'va-dot' + (on ? ' on' : ''); }
@@ -1136,15 +1212,32 @@ function restartSurvey() {
   function err(t) { const e = $('va-err'); e.textContent = t || ''; e.style.display = t ? 'block' : 'none'; }
 
   // ---------- speech recognition ----------
+  function log(msg) {
+    const t = new Date().toTimeString().slice(0, 8);
+    V.log.push(t + '  ' + msg); if (V.log.length > 60) V.log.shift();
+    const box = $('va-log'); if (box && box.style.display !== 'none') box.textContent = V.log.slice().reverse().join('\n');
+  }
   function makeRec() {
     const r = new SR();
     r.lang = V.lang;
     r.continuous = !ANDROID;          // Android works best with one phrase per session; we restart it
     r.interimResults = true;
     r.maxAlternatives = 3;
-    r.onstart = () => { V.listening = true; status('Listening… speak now', true); $('va-listen').textContent = 'Pause'; };
+    r.onstart = () => { V.listening = true; log('start (' + r.lang + ')'); status('Listening… speak now', true); $('va-listen').textContent = 'Pause'; };
+    r.onaudiostart = () => log('microphone on');
+    r.onsoundstart = () => { log('sound detected'); status('Hearing sound…', true); };
+    r.onspeechstart = () => { log('speech detected'); status('Hearing speech…', true); };
+    r.onspeechend = () => log('speech ended');
+    r.onnomatch = () => { log('no match'); err('Speech heard but not turned into words. Speak a little louder and closer, or switch the language in Settings.'); };
     r.onresult = e => {
-      if (V.speaking || Date.now() < V.ignoreUntil) return;        // ignore our own voice and leftovers
+      const dump = [];
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i]; const alts = [];
+        for (let j = 0; j < res.length; j++) alts.push(res[j].transcript);
+        dump.push((res.isFinal ? 'FINAL ' : 'part ') + alts.join(' | '));
+      }
+      log('result: ' + dump.join(' ; '));
+      if (V.speaking || Date.now() < V.ignoreUntil) { log('ignored (just after an answer or while reading)'); return; }
       let interim = '';
       const finals = [];
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -1152,24 +1245,33 @@ function restartSurvey() {
         if (res.isFinal) { const alts = []; for (let j = 0; j < res.length; j++) alts.push(res[j].transcript); finals.push(alts); }
         else interim += res[0].transcript;
       }
+      V.interim = finals.length ? '' : interim;
       if (interim) { clearTimeout(V.timer); say(V.heard.map(a => a[0]).join(' ') + ' ' + interim); }   // still speaking: keep waiting
       if (finals.length) {
         finals.forEach(a => V.heard.push(a));
         say(V.heard.map(a => a[0]).join(' '));
         clearTimeout(V.timer);
-        V.timer = setTimeout(takeHeard, V.wait * 1000);
+        const combined = V.heard.map(a => a[0]).join(' ').trim();
+        const quick = V.item && V.item.kind !== 'text' && !V.proposal ? interpretAny(V.item, [combined].concat(finals[finals.length - 1])) : { error: 1 };
+        if (!quick.error) takeHeard();                       // clear answer: save at once
+        else V.timer = setTimeout(takeHeard, V.wait * 1000); // unclear: wait briefly for more words
       }
     };
     r.onerror = e => {
-      V.lastError = e.error;
+      V.lastError = e.error; log('error: ' + e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { V.wantListen = false; explainBlocked(e.error); }
       else if (e.error === 'network') { err('No internet for speech-to-text. Tap the answers for now; voice resumes when the network is back.'); }
       else if (e.error === 'audio-capture') { err('No microphone found. Check the phone microphone, or close other apps using it.'); }
       else if (e.error === 'language-not-supported') { err('This language is not supported here. Choose English (India) in Settings.'); }
     };
     r.onend = () => {
-      V.listening = false;
-      if (V.on && V.wantListen && !V.speaking) setTimeout(safeStart, V.lastError === 'network' ? 3000 : 150);
+      V.listening = false; log('end');
+      // some phones close the session without ever marking the words as final: use what was heard
+      if (V.interim && !V.speaking && Date.now() >= V.ignoreUntil) {
+        V.heard.push([V.interim]); V.interim = '';
+        clearTimeout(V.timer); V.timer = setTimeout(takeHeard, V.wait * 1000);
+      }
+      if (V.on && V.wantListen && !V.speaking) setTimeout(safeStart, V.lastError === 'network' ? 3000 : 50);
       else if (!V.speaking) { status(V.on ? 'Paused — tap Listen' : 'Off', false); $('va-listen').textContent = 'Listen'; }
     };
     return r;
@@ -1191,6 +1293,7 @@ function restartSurvey() {
     catch (e) { setTimeout(safeStart, 300); }   // still closing the last session: try again shortly
   }
   function listen() {
+    if (V.input === 'keyboard') return;
     if (!SR) { err('Voice input is not available in this browser. Use Chrome on an Android phone or a laptop.'); return; }
     V.wantListen = true; err(''); safeStart();
   }
@@ -1274,13 +1377,35 @@ function restartSurvey() {
     $('va-stem').textContent = it.kind === 'matrix' ? it.stem.replace(/<[^>]+>/g, '') : '';
     $('va-q').textContent = qtext + (it.f.optional ? '  (optional)' : '');
     $('va-opts').innerHTML = it.kind === 'text'
-      ? `<span class="va-opt">${it.f.inputType === 'number' ? 'Say a number' : 'Say the answer'}</span>`
+      ? `<span class="va-opt">Type this answer in the highlighted box on the form, then tap Next</span>`
       : it.options.map((o, i) => `<span class="va-opt"><b>${i + 1}</b> ${o}</span>`).join('');
+    $('va-next').style.display = it.kind === 'text' ? '' : 'none';
     $('va-skip').style.display = it.f.optional ? '' : 'none';
     const block = document.getElementById('block-' + it.f.id);
     if (block) { block.classList.add('va-current'); block.scrollIntoView({ block: 'center' }); }
     V.heard = [];
-    speakThen(qtext, () => { V.wantListen = true; listen(); });
+    clearInterval(V.typeWatch);
+    if (it.kind === 'text') {
+      // amounts, counts and names are typed: pause the microphone and wait for the typed value
+      pauseListening(); status('Type the answer in the form', false);
+      const input = document.getElementById(it.f.id);
+      if (input) { input.focus({ preventScroll: true }); }
+      V.typeWatch = setInterval(() => { if (V.item === it && answered(it)) { clearInterval(V.typeWatch); present(false); } }, 400);
+      return;
+    }
+    speakThen(qtext, () => {
+      if (V.input === 'keyboard') { const box = $('va-type'); if (box) box.focus({ preventScroll: true }); return; }
+      V.wantListen = true; listen();
+    });
+  }
+  function typedNext() {
+    const it = V.item; if (!it || it.kind !== 'text') return;
+    const input = document.getElementById(it.f.id);
+    const v = input ? input.value.trim() : '';
+    if (!v && !it.f.optional) { err('Please type the answer in the highlighted box first.'); return; }
+    if (v) setAnswer(it.f.id, v); else V.skipped.add(it.key);
+    V.history.push({ step: currentStep, f: it.f.id, row: it.row, kind: it.kind });
+    clearInterval(V.typeWatch); present(false);
   }
 
   function handleSpeech(alts) {
@@ -1331,7 +1456,7 @@ function restartSurvey() {
     else setAnswer(f.id, r.value);
     V.history.push({ step: currentStep, f: f.id, row: it.row, kind: it.kind });
     $('va-saved').textContent = 'Saved: ' + (it.text || '').replace(/<[^>]+>/g, '').slice(0, 60) + ' → ' + r.show;
-    V.ignoreUntil = Date.now() + 600;          // do not carry the tail of this answer into the next question
+    V.ignoreUntil = Date.now() + 350;          // do not carry the tail of this answer into the next question
     say('');
     present(false);
   }
@@ -1367,21 +1492,28 @@ function restartSurvey() {
 
   async function start() {
     buildOnce();
-    const problem = setupProblem();
-    if (problem) { P.style.display = 'block'; $('va-fab').textContent = 'Stop voice'; V.on = true; err(problem); return; }
-    if (!SR) { P.style.display = 'block'; err('Voice input is not available in this browser. Use Chrome on Android or a laptop; tapping still works.'); return; }
-    if (document.getElementById('survey').style.display === 'none') startSurvey();
+    if (getComputedStyle(document.getElementById('survey')).display === 'none') startSurvey();   // started from the cover page
     V.on = true; P.style.display = 'block'; $('va-fab').textContent = 'Stop voice';
     V.skipped.clear(); V.history = [];
     if (V.speak && window.speechSynthesis) speechSynthesis.getVoices();   // load the voice list early
+    let note = '';
+    if (!SR && V.input === 'browser') {
+      V.input = 'keyboard'; store.set('input', 'keyboard'); $('va-input').value = 'keyboard';
+      note = 'Speech recognition is not available in this browser, so the keyboard microphone mode is on: tap the box and use the microphone key of your keyboard.';
+    }
+    applyInputMode();
+    if (V.input === 'keyboard') { present(false); if (note) err(note); return; }
+    const problem = setupProblem();
+    if (problem) { present(false); pauseListening(); err(problem + ' Or choose "Phone keyboard microphone" under Settings > Voice input.'); return; }
     // the first microphone start must come from this tap on some phones
     const micOk = await micPreflight();
     if (!micOk) { present(false); pauseListening(); status('Microphone not available — tap the answers', false); err(micMsg); return; }
     V.wantListen = true; safeStart();
     present(false);
   }
+
   function stop() {
-    V.on = false; pauseListening(); clearProposal(); V.speaking = false;
+    V.on = false; pauseListening(); clearProposal(); V.speaking = false; clearInterval(V.typeWatch);
     if (window.speechSynthesis) speechSynthesis.cancel();
     if (P) P.style.display = 'none';
     const fab = $('va-fab'); if (fab) fab.textContent = 'Voice mode';
